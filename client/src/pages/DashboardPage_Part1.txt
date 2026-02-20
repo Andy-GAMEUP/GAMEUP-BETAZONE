@@ -1,0 +1,328 @@
+import { useState, useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import Badge from '../components/Badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/Tabs'
+import {
+  Users,
+  Gamepad2,
+  MessageSquare,
+  TrendingUp,
+  DollarSign,
+  Zap,
+  Star,
+  AlertCircle,
+  Percent,
+  Eye,
+} from 'lucide-react'
+
+interface Game {
+  _id: string
+  title: string
+  description: string
+  genre: string
+  status: string
+  serviceType: string
+  monetization: string
+  playCount: number
+  rating: number
+  price: number
+  createdAt: string
+  testers: number
+  feedback: number
+  retention: {
+    d1: number
+    d7: number
+    d14: number
+    d30: number
+  }
+  arppu: number
+  conversion: number
+  revenue: number
+}
+
+export default function DashboardPage() {
+  const [activeTab, setActiveTab] = useState('all')
+  const [games, setGames] = useState<Game[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchGames()
+  }, [])
+
+  const fetchGames = async () => {
+    try {
+      // TODO: API 연동
+      setLoading(false)
+      // Mock data for now
+      const mockGames: Game[] = [
+        {
+          _id: '1',
+          title: 'Cyber Nexus',
+          description: '',
+          genre: '액션 RPG',
+          status: 'published',
+          serviceType: 'beta',
+          monetization: 'free',
+          playCount: 2450,
+          rating: 4.8,
+          price: 0,
+          createdAt: '2026-01-15',
+          testers: 2450,
+          feedback: 892,
+          retention: { d1: 75, d7: 45, d14: 32, d30: 18 },
+          arppu: 32400,
+          conversion: 12.5,
+          revenue: 8450000,
+        },
+        {
+          _id: '2',
+          title: 'Stellar Warfare',
+          description: '',
+          genre: 'FPS',
+          status: 'beta',
+          serviceType: 'beta',
+          monetization: 'ad',
+          playCount: 1820,
+          rating: 4.6,
+          price: 0,
+          createdAt: '2026-02-10',
+          testers: 1820,
+          feedback: 645,
+          retention: { d1: 68, d7: 38, d14: 25, d30: 12 },
+          arppu: 0,
+          conversion: 0,
+          revenue: 3200000,
+        },
+        {
+          _id: '3',
+          title: 'Racing Legends',
+          description: '',
+          genre: '레이싱',
+          status: 'published',
+          serviceType: 'live',
+          monetization: 'paid',
+          playCount: 8500,
+          rating: 4.7,
+          price: 15000,
+          createdAt: '2026-01-01',
+          testers: 8500,
+          feedback: 2341,
+          retention: { d1: 82, d7: 58, d14: 42, d30: 28 },
+          arppu: 45200,
+          conversion: 25.3,
+          revenue: 28450000,
+        },
+      ]
+      setGames(mockGames)
+    } catch (error) {
+      console.error('Failed to fetch games:', error)
+      setLoading(false)
+    }
+  }
+
+  // 게임 필터링
+  const allGames = games
+  const betaGames = games.filter((game) => game.serviceType === 'beta')
+  const liveGames = games.filter((game) => game.serviceType === 'live')
+
+  const getFilteredGames = () => {
+    switch (activeTab) {
+      case 'beta':
+        return betaGames
+      case 'live':
+        return liveGames
+      default:
+        return allGames
+    }
+  }
+
+  const filteredGames = getFilteredGames()
+
+  // 통계 계산
+  const totalGames = allGames.length
+  const totalRevenue = allGames.reduce((sum, game) => sum + game.revenue, 0)
+  const totalUsers = allGames.reduce((sum, game) => sum + game.testers, 0)
+  const avgARPPU = totalRevenue / (totalUsers || 1)
+
+  const stats = [
+    {
+      label: '등록된 게임',
+      value: totalGames.toString(),
+      change: '+2',
+      trend: 'up',
+      icon: <Gamepad2 className="w-6 h-6" />,
+      color: 'text-blue-400',
+    },
+    {
+      label: '총 매출',
+      value: `₩${(totalRevenue / 10000).toFixed(0)}만`,
+      change: '+18.2%',
+      trend: 'up',
+      icon: <DollarSign className="w-6 h-6" />,
+      color: 'text-green-400',
+    },
+    {
+      label: '활성 유저',
+      value: totalUsers.toLocaleString(),
+      change: '+1,250',
+      trend: 'up',
+      icon: <Users className="w-6 h-6" />,
+      color: 'text-purple-400',
+    },
+    {
+      label: '평균 ARPPU',
+      value: `₩${Math.round(avgARPPU).toLocaleString()}`,
+      change: '+5.3%',
+      trend: 'up',
+      icon: <TrendingUp className="w-6 h-6" />,
+      color: 'text-yellow-400',
+    },
+  ]
+
+  // 매출 통계 계산
+  const paidRevenue = filteredGames
+    .filter((g) => g.monetization === 'paid' || g.monetization === 'free')
+    .reduce((sum, game) => sum + game.revenue, 0)
+  const adRevenue = filteredGames
+    .filter((g) => g.monetization === 'ad')
+    .reduce((sum, game) => sum + game.revenue, 0)
+
+  // 평균 리텐션 계산
+  const avgRetention = {
+    d1: filteredGames.length > 0 ? Math.round(filteredGames.reduce((sum, game) => sum + game.retention.d1, 0) / filteredGames.length) : 0,
+    d7: filteredGames.length > 0 ? Math.round(filteredGames.reduce((sum, game) => sum + game.retention.d7, 0) / filteredGames.length) : 0,
+    d14: filteredGames.length > 0 ? Math.round(filteredGames.reduce((sum, game) => sum + game.retention.d14, 0) / filteredGames.length) : 0,
+    d30: filteredGames.length > 0 ? Math.round(filteredGames.reduce((sum, game) => sum + game.retention.d30, 0) / filteredGames.length) : 0,
+  }
+
+  const recentFeedback = [
+    {
+      id: 1,
+      game: 'Cyber Nexus',
+      user: '김게이머',
+      type: '버그',
+      message: '레벨 15에서 캐릭터가 벽을 통과하는 버그 발견',
+      time: '30분 전',
+      priority: 'high',
+    },
+    {
+      id: 2,
+      game: 'Stellar Warfare',
+      user: '이플레이어',
+      type: '제안',
+      message: '무기 밸런스 조정이 필요합니다',
+      time: '1시간 전',
+      priority: 'medium',
+    },
+    {
+      id: 3,
+      game: 'Racing Legends',
+      user: '박유저',
+      type: '긍정',
+      message: '스토리라인이 정말 흥미진진합니다!',
+      time: '2시간 전',
+      priority: 'low',
+    },
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto mb-4"></div>
+          <p className="text-slate-400">로딩중...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Welcome Section */}
+      <div>
+        <h1 className="text-3xl font-bold mb-2 text-white">대시보드</h1>
+        <p className="text-slate-400">게임 성과를 한눈에 확인하세요</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats.map((stat, index) => (
+          <div key={index} className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className={stat.color}>{stat.icon}</div>
+              <Badge
+                variant={stat.trend === 'up' ? 'success' : 'danger'}
+                className="bg-green-500/20 text-green-400 border-green-500/50"
+              >
+                {stat.change}
+              </Badge>
+            </div>
+            <div className="text-3xl font-bold mb-1 text-white">{stat.value}</div>
+            <div className="text-sm text-slate-400">{stat.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* 게임 탭 */}
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="bg-slate-900 border border-slate-800">
+          <TabsTrigger value="all">
+            전체 게임 ({allGames.length})
+          </TabsTrigger>
+          <TabsTrigger value="beta">
+            <Zap className="w-4 h-4 mr-2" />
+            베타 테스트 ({betaGames.length})
+          </TabsTrigger>
+          <TabsTrigger value="live">
+            <Gamepad2 className="w-4 h-4 mr-2" />
+            라이브 게임 ({liveGames.length})
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value={activeTab} className="space-y-6 mt-6">
+          {/* 매출 요약 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-slate-400 text-sm">총 매출</div>
+                <DollarSign className="w-5 h-5 text-green-400" />
+              </div>
+              <div className="text-3xl font-bold text-green-400 mb-1">
+                ₩{totalRevenue.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500">이번 달</div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-slate-400 text-sm">유료 판매</div>
+                <DollarSign className="w-5 h-5 text-blue-400" />
+              </div>
+              <div className="text-3xl font-bold mb-1 text-white">
+                ₩{paidRevenue.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500">
+                전체의 {totalRevenue > 0 ? ((paidRevenue / totalRevenue) * 100).toFixed(1) : 0}%
+              </div>
+            </div>
+
+            <div className="bg-slate-900 border border-slate-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="text-slate-400 text-sm">광고 매출</div>
+                <Eye className="w-5 h-5 text-yellow-400" />
+              </div>
+              <div className="text-3xl font-bold mb-1 text-white">
+                ₩{adRevenue.toLocaleString()}
+              </div>
+              <div className="text-xs text-slate-500">
+                전체의 {totalRevenue > 0 ? ((adRevenue / totalRevenue) * 100).toFixed(1) : 0}%
+              </div>
+            </div>
+          </div>
+
+          {/* Continue in next part due to size */}
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}

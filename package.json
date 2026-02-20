@@ -1,0 +1,20 @@
+{
+  "name": "gameup-betazone",
+  "version": "1.0.0",
+  "description": "웹게임 베타존 - 개발자들이 웹게임을 올리고 유료화 결제까지 베타테스트할 수 있는 플랫폼",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:client\" \"npm run dev:server\"",
+    "dev:client": "npm run dev --workspace=client",
+    "dev:server": "npm run dev --workspace=server",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
