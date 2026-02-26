@@ -14,27 +14,40 @@ export const getGameReviews = async (req: AuthRequest, res: Response) => {
     const { gameId } = req.params
     const { page = 1, limit = 10, sort = 'recent', feedbackType } = req.query
 
-    const filter: Record<string, unknown> = { gameId }
+    // 🔒 차단된 리뷰 제외 (버그 수정)
+    const filter: Record<string, unknown> = {
+      gameId,
+      isBlocked: { $ne: true }
+    }
     if (feedbackType) filter.feedbackType = feedbackType
 
     const sortOption: Record<string, 1 | -1> =
       sort === 'helpful' ? { helpfulCount: -1 } : { createdAt: -1 }
 
+    const pageNum = Math.max(1, Number(page))
+    const limitNum = Math.min(50, Math.max(1, Number(limit)))
+
     const total = await Review.countDocuments(filter)
     const reviews = await Review.find(filter)
       .populate('userId', 'username')
       .sort(sortOption)
-      .skip((Number(page) - 1) * Number(limit))
-      .limit(Number(limit))
+      .skip((pageNum - 1) * limitNum)
+      .limit(limitNum)
 
     const ratingDist = await Review.aggregate([
-      { $match: { gameId: new mongoose.Types.ObjectId(gameId as string) } },
+      { $match: { gameId: new mongoose.Types.ObjectId(gameId as string), isBlocked: { $ne: true } } },
       { $group: { _id: '$rating', count: { $sum: 1 } } }
     ])
     const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
     ratingDist.forEach((d) => { distribution[d._id] = d.count })
 
-    res.json({ reviews, total, page: Number(page), totalPages: Math.ceil(total / Number(limit)), distribution })
+    res.json({
+      reviews,
+      total,
+      page: pageNum,
+      totalPages: Math.ceil(total / limitNum),
+      distribution
+    })
   } catch (error) {
     res.status(500).json({ message: '리뷰 조회 실패' })
   }
@@ -47,7 +60,6 @@ export const upsertReview = async (req: AuthRequest, res: Response) => {
     const { rating, title, content, feedbackType, bugSeverity } = req.body
     const userId = req.user!.id
 
-    // 서버측 입력 검증
     if (!rating || typeof rating !== 'number' || rating < 1 || rating > 5) {
       return res.status(400).json({ message: '별점은 1~5점 사이여야 합니다' })
     }
@@ -86,12 +98,10 @@ export const upsertReview = async (req: AuthRequest, res: Response) => {
         existing.isVerifiedTester = !!hasPlayed
       }
       await existing.save()
-
       await updateGameRating(gameId)
       return res.json({ message: '리뷰가 수정되었습니다', review: existing })
     }
 
-    // 실제 플레이 여부로 인증 테스터 결정
     const hasPlayed = await PlayerActivity.exists({ userId, gameId, type: 'play' })
 
     const review = await Review.create({
@@ -145,6 +155,11 @@ export const toggleHelpful = async (req: AuthRequest, res: Response) => {
     const review = await Review.findById(reviewId)
     if (!review) return res.status(404).json({ message: '리뷰를 찾을 수 없습니다' })
 
+    // 🔒 자신의 리뷰에 도움됨 불가
+    if (review.userId.toString() === userId) {
+      return res.status(400).json({ message: '자신의 리뷰에는 도움됨을 누를 수 없습니다' })
+    }
+
     const mongoUserId = new mongoose.Types.ObjectId(userId)
     const alreadyHelped = review.helpfulUsers.some((id) => id.toString() === userId)
 
@@ -178,7 +193,7 @@ export const getMyReview = async (req: AuthRequest, res: Response) => {
 
 async function updateGameRating(gameId: string) {
   const result = await Review.aggregate([
-    { $match: { gameId: new mongoose.Types.ObjectId(gameId) } },
+    { $match: { gameId: new mongoose.Types.ObjectId(gameId), isBlocked: { $ne: true } } },
     { $group: { _id: null, avg: { $avg: '$rating' } } }
   ])
   const avg = result[0]?.avg || 0

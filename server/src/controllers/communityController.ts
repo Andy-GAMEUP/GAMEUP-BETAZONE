@@ -2,10 +2,8 @@ import { Request, Response } from 'express'
 import mongoose from 'mongoose'
 import Post from '../models/Post'
 import Comment from '../models/Comment'
-
-interface AuthRequest extends Request {
-  user?: { id: string; email: string; role: string }
-}
+// 🔒 중복 AuthRequest 제거 - middleware/auth.ts의 것을 사용
+import { AuthRequest } from '../middleware/auth'
 
 // 핫 스코어 계산: likes*3 + comments*2 + views*0.1 - 시간 감쇠
 function calcHotScore(likes: number, comments: number, views: number, createdAt: Date): number {
@@ -13,7 +11,6 @@ function calcHotScore(likes: number, comments: number, views: number, createdAt:
   return (likes * 3 + comments * 2 + views * 0.1) / Math.pow(ageHours + 2, 1.5)
 }
 
-// ── 게시글 목록 ────────────────────────────────────────────────────
 export const getPosts = async (req: Request, res: Response) => {
   try {
     const { page = 1, limit = 15, sort = 'latest', category, gameId, search, tag } = req.query
@@ -23,6 +20,7 @@ export const getPosts = async (req: Request, res: Response) => {
     if (gameId) filter.gameId = gameId
     if (tag) filter.tags = tag
     if (search) {
+      // 🔒 정규식 특수문자 이스케이프 (ReDoS 방지)
       const safe = (search as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       filter.$or = [
         { title: { $regex: safe, $options: 'i' } },
@@ -56,7 +54,6 @@ export const getPosts = async (req: Request, res: Response) => {
   }
 }
 
-// ── 게시글 상세 ────────────────────────────────────────────────────
 export const getPost = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
@@ -66,7 +63,6 @@ export const getPost = async (req: Request, res: Response) => {
       { new: true }
     ).populate('author', 'username role').populate('gameId', 'title')
     if (!post) return res.status(404).json({ message: '게시글을 찾을 수 없습니다' })
-
     const updated = { ...post.toObject(), likeCount: post.likes.length, bookmarkCount: post.bookmarks.length }
     res.json({ post: updated })
   } catch {
@@ -74,7 +70,6 @@ export const getPost = async (req: Request, res: Response) => {
   }
 }
 
-// ── 게시글 작성 ────────────────────────────────────────────────────
 export const createPost = async (req: AuthRequest, res: Response) => {
   try {
     const { title, content, category, gameId, images, links, tags } = req.body
@@ -99,7 +94,6 @@ export const createPost = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 게시글 수정 ────────────────────────────────────────────────────
 export const updatePost = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -123,7 +117,6 @@ export const updatePost = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 게시글 삭제 ────────────────────────────────────────────────────
 export const deletePost = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -140,7 +133,6 @@ export const deletePost = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 좋아요 토글 ────────────────────────────────────────────────────
 export const toggleLike = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -162,7 +154,6 @@ export const toggleLike = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 즐겨찾기 토글 ──────────────────────────────────────────────────
 export const toggleBookmark = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -181,7 +172,6 @@ export const toggleBookmark = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 게시글 신고 ────────────────────────────────────────────────────
 export const reportPost = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -190,6 +180,10 @@ export const reportPost = async (req: AuthRequest, res: Response) => {
     const userId = new mongoose.Types.ObjectId(req.user!.id)
     const post = await Post.findOne({ _id: id, status: 'active' })
     if (!post) return res.status(404).json({ message: '게시글을 찾을 수 없습니다' })
+    // 🔒 자신의 게시글 신고 불가
+    if (post.author.toString() === req.user!.id) {
+      return res.status(400).json({ message: '자신의 게시글은 신고할 수 없습니다' })
+    }
     const alreadyReported = post.reports.some((r) => r.userId.equals(userId))
     if (alreadyReported) return res.status(400).json({ message: '이미 신고한 게시글입니다' })
     post.reports.push({ userId, reason: reason.trim(), createdAt: new Date() })
@@ -202,7 +196,6 @@ export const reportPost = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 나의 즐겨찾기 목록 ────────────────────────────────────────────
 export const getMyBookmarks = async (req: AuthRequest, res: Response) => {
   try {
     const userId = new mongoose.Types.ObjectId(req.user!.id)
@@ -220,7 +213,6 @@ export const getMyBookmarks = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 댓글 목록 ─────────────────────────────────────────────────────
 export const getComments = async (req: Request, res: Response) => {
   try {
     const { postId } = req.params
@@ -232,7 +224,7 @@ export const getComments = async (req: Request, res: Response) => {
       .sort({ createdAt: 1 })
 
     const tree = comments.map((c) => {
-      const obj = c.toObject()
+      const obj: Record<string, unknown> = c.toObject()
       if (c.status !== 'active') {
         obj.content = '[삭제된 댓글입니다]'
         obj.author = null
@@ -252,7 +244,6 @@ export const getComments = async (req: Request, res: Response) => {
   }
 }
 
-// ── 댓글 작성 ─────────────────────────────────────────────────────
 export const createComment = async (req: AuthRequest, res: Response) => {
   try {
     const { postId } = req.params
@@ -268,11 +259,7 @@ export const createComment = async (req: AuthRequest, res: Response) => {
       parentId: parentId || null,
       isOfficial
     })
-    const updatedPost = await Post.findByIdAndUpdate(
-      postId,
-      { $inc: { commentCount: 1 } },
-      { new: true }
-    )
+    const updatedPost = await Post.findByIdAndUpdate(postId, { $inc: { commentCount: 1 } }, { new: true })
     if (updatedPost) {
       const newHot = calcHotScore(updatedPost.likes.length, updatedPost.commentCount, updatedPost.views, updatedPost.createdAt)
       await Post.findByIdAndUpdate(postId, { hotScore: newHot, isHot: newHot > 5 })
@@ -284,7 +271,6 @@ export const createComment = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 댓글 수정 ─────────────────────────────────────────────────────
 export const updateComment = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -304,7 +290,6 @@ export const updateComment = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 댓글 삭제 ─────────────────────────────────────────────────────
 export const deleteComment = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -322,13 +307,16 @@ export const deleteComment = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 댓글 좋아요 토글 ──────────────────────────────────────────────
 export const toggleCommentLike = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
     const userId = new mongoose.Types.ObjectId(req.user!.id)
     const comment = await Comment.findOne({ _id: id, status: 'active' })
     if (!comment) return res.status(404).json({ message: '댓글을 찾을 수 없습니다' })
+    // 🔒 자신의 댓글 좋아요 불가
+    if (comment.author.toString() === req.user!.id) {
+      return res.status(400).json({ message: '자신의 댓글에는 좋아요를 누를 수 없습니다' })
+    }
     const idx = comment.likes.findIndex((l) => l.equals(userId))
     if (idx > -1) comment.likes.splice(idx, 1)
     else comment.likes.push(userId)
@@ -339,7 +327,6 @@ export const toggleCommentLike = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 댓글 신고 ─────────────────────────────────────────────────────
 export const reportComment = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -348,6 +335,10 @@ export const reportComment = async (req: AuthRequest, res: Response) => {
     const userId = new mongoose.Types.ObjectId(req.user!.id)
     const comment = await Comment.findOne({ _id: id, status: 'active' })
     if (!comment) return res.status(404).json({ message: '댓글을 찾을 수 없습니다' })
+    // 🔒 자신의 댓글 신고 불가
+    if (comment.author.toString() === req.user!.id) {
+      return res.status(400).json({ message: '자신의 댓글은 신고할 수 없습니다' })
+    }
     if (comment.reports.some((r) => r.userId.equals(userId))) {
       return res.status(400).json({ message: '이미 신고한 댓글입니다' })
     }
@@ -361,7 +352,6 @@ export const reportComment = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 관리자: 신고된 게시글 목록 ────────────────────────────────────
 export const getReportedPosts = async (req: AuthRequest, res: Response) => {
   try {
     const { page = 1, limit = 20 } = req.query
@@ -378,7 +368,6 @@ export const getReportedPosts = async (req: AuthRequest, res: Response) => {
   }
 }
 
-// ── 관리자: 게시글 상태 변경 (숨김/삭제/복구) ────────────────────
 export const adminUpdatePostStatus = async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params
@@ -396,14 +385,13 @@ export const adminUpdatePostStatus = async (req: AuthRequest, res: Response) => 
   }
 }
 
-// ── 커뮤니티 통계 ─────────────────────────────────────────────────
 export const getCommunityStats = async (_req: Request, res: Response) => {
   try {
     const [totalPosts, totalComments, hotPosts] = await Promise.all([
       Post.countDocuments({ status: 'active' }),
       Comment.countDocuments({ status: 'active' }),
       Post.find({ isHot: true, status: 'active' }).sort({ hotScore: -1 }).limit(5)
-        .populate('author', 'username').select('title hotScore likeCount commentCount createdAt')
+        .populate('author', 'username').select('title hotScore commentCount createdAt')
     ])
     res.json({ totalPosts, totalComments, hotPosts })
   } catch {

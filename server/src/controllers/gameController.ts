@@ -1,4 +1,5 @@
 import { Response } from 'express'
+import fs from 'fs'
 import Game from '../models/Game'
 import { AuthRequest } from '../middleware/auth'
 
@@ -6,7 +7,6 @@ export const getAllGames = async (req: AuthRequest, res: Response) => {
   try {
     const { status, genre, search, sort = 'newest', page = 1, limit = 12 } = req.query
 
-    // 공개 목록: 승인된 게임만, archived 제외
     const filter: Record<string, unknown> = {
       approvalStatus: 'approved',
       status: { $in: ['beta', 'published'] }
@@ -21,9 +21,11 @@ export const getAllGames = async (req: AuthRequest, res: Response) => {
     }
 
     if (search) {
+      // 🔒 정규식 특수문자 이스케이프 (ReDoS 방지)
+      const safeSearch = (search as string).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       filter.$or = [
-        { title: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { title: { $regex: safeSearch, $options: 'i' } },
+        { description: { $regex: safeSearch, $options: 'i' } }
       ]
     }
 
@@ -32,13 +34,15 @@ export const getAllGames = async (req: AuthRequest, res: Response) => {
       : sort === 'rating' ? { rating: -1 }
       : { createdAt: -1 }
 
-    const skip = (Number(page) - 1) * Number(limit)
+    const pageNum = Math.max(1, Number(page))
+    const limitNum = Math.min(50, Math.max(1, Number(limit)))
+    const skip = (pageNum - 1) * limitNum
 
     const games = await Game.find(filter)
       .populate('developerId', 'username')
       .sort(sortOption)
       .skip(skip)
-      .limit(Number(limit))
+      .limit(limitNum)
 
     const total = await Game.countDocuments(filter)
 
@@ -46,10 +50,10 @@ export const getAllGames = async (req: AuthRequest, res: Response) => {
       success: true,
       games,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / Number(limit))
+        pages: Math.ceil(total / limitNum)
       }
     })
   } catch (error) {
@@ -72,10 +76,7 @@ export const getGameById = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: '게임을 찾을 수 없습니다' })
     }
 
-    res.json({
-      success: true,
-      game
-    })
+    res.json({ success: true, game })
   } catch (error) {
     console.error('Get game error:', error)
     res.status(500).json({ message: '서버 오류가 발생했습니다' })
@@ -88,14 +89,10 @@ export const createGame = async (req: AuthRequest, res: Response) => {
       return res.status(401).json({ message: '인증이 필요합니다' })
     }
 
-    if (req.user.role !== 'developer') {
-      return res.status(403).json({ message: '개발자만 게임을 업로드할 수 있습니다' })
-    }
-
-    const { title, description, price, isPaid, status } = req.body
+    const { title, description, genre, price, isPaid, status, monetization, serviceType } = req.body
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
-    if (!title || !description) {
+    if (!title?.trim() || !description?.trim()) {
       return res.status(400).json({ message: '제목과 설명은 필수입니다' })
     }
 
@@ -103,14 +100,17 @@ export const createGame = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ message: '게임 파일은 필수입니다' })
     }
 
-    const gameData: any = {
-      title,
-      description,
+    const gameData: Record<string, unknown> = {
+      title: title.trim(),
+      description: description.trim(),
+      genre: genre || '',
       developerId: req.user.id,
       gameFile: files.gameFile[0].path,
-      price: isPaid ? Number(price) : 0,
+      price: isPaid === 'true' ? Math.max(0, Number(price) || 0) : 0,
       isPaid: isPaid === 'true',
-      status: status || 'draft'
+      status: status || 'draft',
+      monetization: monetization || 'free',
+      serviceType: serviceType || 'beta'
     }
 
     if (files.thumbnail) {
@@ -147,30 +147,34 @@ export const updateGame = async (req: AuthRequest, res: Response) => {
       return res.status(403).json({ message: '자신의 게임만 수정할 수 있습니다' })
     }
 
-    const { title, description, price, isPaid, status } = req.body
+    const { title, description, genre, price, isPaid, status } = req.body
     const files = req.files as { [fieldname: string]: Express.Multer.File[] }
 
-    if (title) game.title = title
-    if (description) game.description = description
-    if (price !== undefined) game.price = Number(price)
+    if (title) game.title = title.trim()
+    if (description) game.description = description.trim()
+    if (genre !== undefined) game.genre = genre
+    if (price !== undefined) game.price = Math.max(0, Number(price))
     if (isPaid !== undefined) game.isPaid = isPaid === 'true'
     if (status) game.status = status
 
+    // 🔒 기존 파일 삭제 후 새 파일로 교체
     if (files && files.gameFile) {
+      if (game.gameFile && fs.existsSync(game.gameFile)) {
+        fs.unlinkSync(game.gameFile)
+      }
       game.gameFile = files.gameFile[0].path
     }
 
     if (files && files.thumbnail) {
+      if (game.thumbnail && fs.existsSync(game.thumbnail)) {
+        fs.unlinkSync(game.thumbnail)
+      }
       game.thumbnail = files.thumbnail[0].path
     }
 
     await game.save()
 
-    res.json({
-      success: true,
-      message: '게임이 수정되었습니다',
-      game
-    })
+    res.json({ success: true, message: '게임이 수정되었습니다', game })
   } catch (error) {
     console.error('Update game error:', error)
     res.status(500).json({ message: '서버 오류가 발생했습니다' })
@@ -190,16 +194,22 @@ export const deleteGame = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: '게임을 찾을 수 없습니다' })
     }
 
-    if (game.developerId.toString() !== req.user.id) {
+    // 🔒 admin도 삭제 가능하도록 권한 확인
+    if (game.developerId.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: '자신의 게임만 삭제할 수 있습니다' })
+    }
+
+    // 🔒 실제 파일도 함께 삭제
+    if (game.gameFile && fs.existsSync(game.gameFile)) {
+      fs.unlinkSync(game.gameFile)
+    }
+    if (game.thumbnail && fs.existsSync(game.thumbnail)) {
+      fs.unlinkSync(game.thumbnail)
     }
 
     await Game.findByIdAndDelete(id)
 
-    res.json({
-      success: true,
-      message: '게임이 삭제되었습니다'
-    })
+    res.json({ success: true, message: '게임이 삭제되었습니다' })
   } catch (error) {
     console.error('Delete game error:', error)
     res.status(500).json({ message: '서버 오류가 발생했습니다' })
@@ -219,12 +229,17 @@ export const getMyGames = async (req: AuthRequest, res: Response) => {
 export const getDeveloperStats = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) return res.status(401).json({ message: '인증이 필요합니다' })
+
     const games = await Game.find({ developerId: req.user.id })
     const totalGames = games.length
     const totalPlays = games.reduce((sum, g) => sum + (g.playCount || 0), 0)
-    const totalRevenue = games.reduce((sum, g) => sum + ((g.price || 0) * (g.playCount || 0)), 0)
+
+    // 🔒 수익은 실제 결제 데이터 기반으로 계산 (추후 Payment 모델 연동)
+    const totalRevenue = 0
+
     const publishedGames = games.filter(g => g.status === 'published' || g.status === 'beta').length
     const draftGames = games.filter(g => g.status === 'draft').length
+
     const recentGames = games.slice(0, 5).map(g => ({
       id: g._id,
       title: g.title,
@@ -233,12 +248,13 @@ export const getDeveloperStats = async (req: AuthRequest, res: Response) => {
       price: g.price || 0,
       isPaid: g.isPaid,
       createdAt: g.createdAt,
-      thumbnail: g.thumbnail,
+      thumbnail: g.thumbnail
     }))
+
     res.json({
       success: true,
       stats: { totalGames, totalPlays, totalRevenue, publishedGames, draftGames },
-      recentGames,
+      recentGames
     })
   } catch (error) {
     res.status(500).json({ message: '서버 오류가 발생했습니다' })
@@ -259,10 +275,7 @@ export const incrementPlayCount = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ message: '게임을 찾을 수 없습니다' })
     }
 
-    res.json({
-      success: true,
-      playCount: game.playCount
-    })
+    res.json({ success: true, playCount: game.playCount })
   } catch (error) {
     console.error('Increment play count error:', error)
     res.status(500).json({ message: '서버 오류가 발생했습니다' })

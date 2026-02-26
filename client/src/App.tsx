@@ -14,8 +14,6 @@ import { DashboardPage } from './pages/DashboardPage'
 import GamesManagementPage from './pages/GamesManagementPage'
 import GameEditPage from './pages/GameEditPage'
 import AnalyticsPage from './pages/AnalyticsPage'
-import FeedbackPage from './pages/FeedbackPage'
-import TestersPage from './pages/TestersPage'
 import SettingsPage from './pages/SettingsPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminGamesPage from './pages/AdminGamesPage'
@@ -27,6 +25,10 @@ import RequireAdmin from './components/RequireAdmin'
 import RequireAuth from './components/RequireAuth'
 import PlayerGameDetailPage from './pages/PlayerGameDetailPage'
 import PlayerMyPage from './pages/PlayerMyPage'
+// ✅ 새 페이지 (와이어프레임에서 추가)
+import FeedbackManagementPage from './pages/FeedbackManagementPage'
+import TesterManagementPage from './pages/TesterManagementPage'
+import GameDetailManagementPage from './pages/GameDetailManagementPage'
 
 function App() {
   return (
@@ -51,9 +53,13 @@ function App() {
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/games-management" element={<GamesManagementPage />} />
           <Route path="/games-management/:id/edit" element={<GameEditPage />} />
+          {/* ✅ 게임 상세 관리 (미디어/공지/게임샵) */}
+          <Route path="/games-management/:id/manage" element={<GameDetailManagementPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/feedback" element={<FeedbackPage />} />
-          <Route path="/testers" element={<TestersPage />} />
+          {/* ✅ 피드백 관리 (업그레이드) */}
+          <Route path="/feedback" element={<FeedbackManagementPage />} />
+          {/* ✅ 테스터 관리 (업그레이드) */}
+          <Route path="/testers" element={<TesterManagementPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/upload" element={<UploadGamePage />} />
         </Route>
