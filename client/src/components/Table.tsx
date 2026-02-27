@@ -35,7 +35,7 @@ interface TableCellProps {
 export function Table({ children, className = '' }: TableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className={`min-w-full divide-y divide-gray-200 ${className}`}>
+      <table className={`min-w-full divide-y divide-slate-800 ${className}`}>
         {children}
       </table>
     </div>
@@ -44,7 +44,7 @@ export function Table({ children, className = '' }: TableProps) {
 
 export function TableHeader({ children, className = '' }: TableHeaderProps) {
   return (
-    <thead className={`bg-gray-50 ${className}`}>
+    <thead className={`bg-slate-800/50 ${className}`}>
       {children}
     </thead>
   )
@@ -52,7 +52,7 @@ export function TableHeader({ children, className = '' }: TableHeaderProps) {
 
 export function TableBody({ children, className = '' }: TableBodyProps) {
   return (
-    <tbody className={`bg-white divide-y divide-gray-200 ${className}`}>
+    <tbody className={`divide-y divide-slate-800 ${className}`}>
       {children}
     </tbody>
   )
@@ -60,8 +60,8 @@ export function TableBody({ children, className = '' }: TableBodyProps) {
 
 export function TableRow({ children, className = '', onClick }: TableRowProps) {
   return (
-    <tr 
-      className={`${onClick ? 'cursor-pointer hover:bg-gray-50' : ''} ${className}`}
+    <tr
+      className={`${onClick ? 'cursor-pointer hover:bg-slate-800/50' : ''} ${className}`}
       onClick={onClick}
     >
       {children}
@@ -72,7 +72,7 @@ export function TableRow({ children, className = '', onClick }: TableRowProps) {
 export function TableHead({ children, className = '' }: TableHeadProps) {
   return (
     <th
-      className={`px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ${className}`}
+      className={`px-6 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider ${className}`}
     >
       {children}
     </th>
@@ -81,8 +81,8 @@ export function TableHead({ children, className = '' }: TableHeadProps) {
 
 export function TableCell({ children, className = '', colSpan }: TableCellProps) {
   return (
-    <td 
-      className={`px-6 py-4 whitespace-nowrap text-sm text-gray-900 ${className}`}
+    <td
+      className={`px-6 py-4 whitespace-nowrap text-sm text-slate-200 ${className}`}
       colSpan={colSpan}
     >
       {children}

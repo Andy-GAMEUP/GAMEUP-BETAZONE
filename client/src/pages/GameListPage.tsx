@@ -8,7 +8,7 @@ import { Heart, Star, Search, Filter, Loader2, Gamepad2, ChevronLeft, ChevronRig
 import { gameService } from '../services/gameService'
 import { Game } from '../../../shared/types'
 
-const PLACEHOLDER = 'https://via.placeholder.com/400x256/1e293b/334155?text=Game'
+const PLACEHOLDER = 'https://picsum.photos/seed/gameup/400/256'
 
 const GENRES = ['전체', 'RPG', '액션', 'FPS', '전략', '퍼즐', '스포츠', '레이싱', '어드벤처', '시뮬레이션']
 const SORT_OPTIONS = [
