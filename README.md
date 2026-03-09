@@ -50,7 +50,7 @@ GAMEUP-BETAZONE/
 - Express
 - TypeScript
 - MongoDB (예정)
-- Stripe (결제)
+- 미정 (결제)
 
 ## 시작하기
 
