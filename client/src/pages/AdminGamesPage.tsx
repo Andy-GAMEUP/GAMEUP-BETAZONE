@@ -229,7 +229,7 @@ export default function AdminGamesPage() {
                     {/* 썸네일 */}
                     <div className="w-16 h-12 bg-slate-800 rounded-lg overflow-hidden flex-shrink-0">
                       {g.thumbnail
-                        ? <img src={`/uploads/${g.thumbnail.replace('uploads/','')}`} alt={g.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'https://via.placeholder.com/64x48/1e293b/334155?text=G' }} />
+                        ? <img src={`/uploads/${g.thumbnail.replace('uploads/','')}`} alt={g.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/game/64/48' }} />
                         : <div className="w-full h-full flex items-center justify-center text-slate-600 text-xs">No img</div>}
                     </div>
 

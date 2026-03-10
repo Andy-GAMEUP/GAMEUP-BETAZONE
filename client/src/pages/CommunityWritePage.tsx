@@ -150,7 +150,7 @@ export default function CommunityWritePage() {
               <div className="grid grid-cols-3 gap-2">
                 {images.map((img,i) => (
                   <div key={i} className="relative group">
-                    <img src={img} alt="" className="w-full h-20 object-cover rounded-lg border border-slate-700" onError={e=>(e.currentTarget.src='https://via.placeholder.com/80x80?text=Error')} />
+                    <img src={img} alt="" className="w-full h-20 object-cover rounded-lg border border-slate-700" onError={e=>(e.currentTarget.src='https://picsum.photos/seed/error/80/80')} />
                     <button onClick={() => setImages(images.filter((_,j)=>j!==i))}
                       className="absolute top-1 right-1 bg-red-700/80 rounded p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Trash2 className="w-3 h-3 text-white"/>

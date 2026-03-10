@@ -467,7 +467,7 @@ export function DashboardPage() {
                 {filteredGames.map((game) => (
                   <Link
                     key={game.id}
-                    to={`/developer/games/${game.id}`}
+                    to={`/games-management/${game.id}/manage`}
                     className="block p-4 bg-slate-800/50 rounded-lg hover:bg-slate-800 transition-colors"
                   >
                     <div className="flex items-start justify-between mb-3">

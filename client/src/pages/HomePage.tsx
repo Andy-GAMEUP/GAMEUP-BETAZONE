@@ -20,7 +20,7 @@ import {
 import { gameService } from '../services/gameService'
 import { Game } from '../../../shared/types'
 
-const PLACEHOLDER = 'https://via.placeholder.com/400x300/1e293b/334155?text=Game'
+const PLACEHOLDER = 'https://picsum.photos/seed/gameup/400/300'
 
 function FeaturedGameCard({ game }: { game: Game }) {
   const navigate = useNavigate()
@@ -146,7 +146,7 @@ export default function HomePage() {
             src="https://images.unsplash.com/photo-1766052631095-c16328022120?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1080"
             alt="Gaming Setup"
             className="w-full h-full object-cover opacity-30"
-            onError={(e) => { e.currentTarget.src = 'https://via.placeholder.com/1920x1080/1e293b/334155?text=Gaming+Setup' }}
+            onError={(e) => { e.currentTarget.src = 'https://picsum.photos/seed/gaming/1920/1080' }}
           />
         </div>
         <div className="container mx-auto px-4 py-32 relative z-20">
